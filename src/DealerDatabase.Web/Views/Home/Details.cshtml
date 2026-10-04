@@ -1,0 +1,111 @@
+@model DealerDatabase.Data.Entities.Dealer
+@{
+    ViewData["Title"] = Model.Name;
+
+    string? SourceOf(string field) =>
+        Model.FieldAttributions.FirstOrDefault(a => a.FieldName == field) is { } a
+            ? $"{a.SourceName}:{a.SourceRecordKey}"
+            : null;
+
+    string? JoinParts(params string?[] parts) =>
+        string.Join(", ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    var rows = new (string Label, string? Value, string Field)[]
+    {
+        ("Trading name", Model.TradingName, "TradingName"),
+        ("Legal name", Model.LegalName, "LegalName"),
+        ("Company number", Model.CompanyNumber, "CompanyNumber"),
+        ("Incorporation date", Model.IncorporationDate?.ToString("dd MMM yyyy"), "IncorporationDate"),
+        ("Company status", Model.CompanyStatus, "CompanyStatus"),
+        ("Directors", Model.Directors, "Directors"),
+        ("SIC codes", Model.SicCodes, "SicCodes"),
+        ("Trading address", JoinParts(Model.AddressLine1, Model.AddressLine2, Model.Town, Model.County, Model.Postcode), "AddressLine1"),
+        ("Trading postcode", Model.Postcode, "Postcode"),
+        ("Registered address", JoinParts(Model.RegisteredAddressLine1, Model.RegisteredAddressLine2, Model.RegisteredTown, Model.RegisteredCounty, Model.RegisteredPostcode), "RegisteredAddressLine1"),
+        ("Registered postcode", Model.RegisteredPostcode, "RegisteredPostcode"),
+        ("Phone", Model.Phone, "Phone"),
+        ("Email", Model.Email, "Email"),
+        ("Website", Model.Website, "Website"),
+        ("FCA FRN", Model.FcaFrn, "FcaFrn"),
+        ("FCA status", Model.FcaStatus, "FcaStatus"),
+        ("FCA business type", Model.FcaBusinessType, "FcaBusinessType"),
+        ("FCA permissions", Model.FcaPermissions, "FcaPermissions"),
+        ("ICO registration", Model.IcoRegistrationNumber, "IcoRegistrationNumber"),
+        ("ICO start", Model.IcoRegistrationStart?.ToString("dd MMM yyyy"), "IcoRegistrationStart"),
+        ("ICO expiry", Model.IcoExpiry?.ToString("dd MMM yyyy"), "IcoExpiry"),
+        ("ICO payment tier", Model.IcoPaymentTier, "IcoPaymentTier"),
+        ("SAF member id", Model.SafMemberId, "SafMemberId"),
+        ("SAF status", Model.SafStatus, "SafStatus"),
+        ("SAF expiry", Model.SafExpiry?.ToString("dd MMM yyyy"), "SafExpiry"),
+        ("VAT number", Model.VatNumber, "VatNumber"),
+        ("VAT validation", Model.VatValidationStatus, "VatValidationStatus"),
+        ("Seller type", Model.SellerType, "SellerType"),
+        ("Franchise make", Model.FranchiseMake, "FranchiseMake"),
+        ("Inventory count", Model.InventoryCount?.ToString(), "InventoryCount"),
+        ("Avg listed price", Model.AvgListedPrice?.ToString("0.##"), "AvgListedPrice"),
+        ("Avg sold price", Model.AvgSoldPrice?.ToString("0.##"), "AvgSoldPrice"),
+        ("Avg days in stock", Model.AvgDaysInStock?.ToString(), "AvgDaysInStock"),
+        ("Sold last 30 days", Model.SoldLast30Days?.ToString(), "SoldLast30Days"),
+        ("Vehicle types", Model.VehicleTypes, "VehicleTypes"),
+        ("Stock feed", Model.StockFeedProvider, "StockFeedProvider"),
+        ("Marketcheck last seen", Model.MarketcheckLastSeen?.ToString("dd MMM yyyy"), "MarketcheckLastSeen"),
+        ("Finance calculator", Model.FinanceCalculator, "FinanceCalculator"),
+        ("Finance lenders", Model.FinanceLenders, "FinanceLenders"),
+        ("Representative APR", Model.RepresentativeApr, "RepresentativeApr"),
+        ("Offers finance", Model.OffersFinance?.ToString(), "OffersFinance"),
+        ("Website platform", Model.WebsitePlatform, "WebsitePlatform"),
+        ("Google rating", Model.GoogleRating?.ToString("0.#"), "GoogleRating"),
+        ("Google reviews", Model.GoogleReviewCount?.ToString(), "GoogleReviewCount"),
+        ("Trustpilot", Model.TrustpilotScore?.ToString("0.#"), "TrustpilotScore"),
+    };
+}
+
+<p><a asp-action="Index">&larr; All dealers</a></p>
+
+<h1 class="h3 mb-1">@Model.Name</h1>
+<p class="text-muted mb-4">Lineage: <code style="word-break:break-all">@Model.LineageTag</code></p>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Field</th>
+                        <th>Value</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in rows.Where(r => !string.IsNullOrWhiteSpace(r.Value)))
+                {
+                    <tr>
+                        <th class="w-25">@row.Label</th>
+                        <td>@row.Value</td>
+                        <td class="small text-muted">@(SourceOf(row.Field) ?? "—")</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <h2 class="h5">Source records</h2>
+        <ul class="list-unstyled small">
+            @foreach (var link in Model.SourceLinks.OrderBy(l => l.SourceName).ThenBy(l => l.SourceRecordKey))
+            {
+                <li><strong>@link.SourceName</strong>: @link.SourceRecordKey</li>
+            }
+        </ul>
+        <h2 class="h5 mt-4">Field provenance</h2>
+        <ul class="list-unstyled small">
+            @foreach (var attr in Model.FieldAttributions.OrderBy(a => a.FieldName))
+            {
+                <li>
+                    <strong>@attr.FieldName</strong>
+                    ← @attr.SourceName:@attr.SourceRecordKey
+                </li>
+            }
+        </ul>
+    </div>
+</div>
