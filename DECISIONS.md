@@ -2,12 +2,24 @@
 
 ## Matching — when two records are the same dealer
 
-- Pipeline: read all sources → normalise → match into clusters → consolidate → replace dealers in SQLite (idempotent re-run).
-- **Hard merges (always):** shared company number, VAT number, FCA FRN, Marketcheck ID, SAF member ID, or ICO registration number.
-- **Soft merges:** only if `ScorePair` ≥ `DedupeConfidenceFloor` (70). Signals include same website domain (~88), same postcode + exact/similar trading name (~92 / ~76), or same phone + distinctive name match (~72).
-- Name matching ignores legal suffixes (`Ltd`, `Limited`, etc.) and generic tokens (`Car`, `Sales`, `Motors`, …) so “X Car Sales” and “Y Car Sales” at the same postcode do not merge on generics alone.
-- Matching strategy reference: `JF-DDB-07` (`DealerMatcher`).
-- Each consolidated dealer gets a `LineageTag` of originating source keys (e.g. `CompaniesHouse:11468952|Marketcheck:MC553987|…`).
+- workflow: 
+    read all sources
+    normalise
+    match into clusters
+    consolidate
+    replace dealers in SQLite (idempotent re-run).
+
+    idempotent re-run achieved by deleting all records and entire reimport, potential area for improvement
+
+ - import strategy
+-       **Hard merges (always): fixed hard values to use : shared company number, VAT number, FCA FRN, Marketcheck ID, SAF member ID, or ICO registration number.
+-       **Soft merges: only if `ScorePair` ≥ `DedupeConfidenceFloor` (70). Signals include same website domain (~88), same postcode + exact/similar trading name (~92 / ~76), or same phone + distinctive name match (~72).
+
+- Name matching 
+    ignores legal suffixes (`Ltd`, `Limited`, etc.)
+    generic tokens (`Car`, `Sales`, `Motors`, …) so “X Car Sales” and “Y Car Sales” at the same postcode do not merge on generics alone.
+
+- Each consolidated dealer gets a `LineageTag` of originating source keys.
 
 ## Conflict resolution — which source wins
 
@@ -23,14 +35,30 @@ Field-level priority when sources disagree (winner recorded in `DealerFieldAttri
 
 ## Assumptions about the data
 
-- Files under `data/` are a static snapshot for this task (not live APIs).
-- Normalised UK identifiers are reliable enough to treat equality as certainty (company numbers padded to 8 digits where numeric; VAT digits; FRN digits; postcodes spaced).
-- Crawl rows are noisy (multiple pages per site); domain / IDs are the main glue, not page title alone.
-- VAT lookup JSON without a `target` (e.g. HMRC `NOT_FOUND`) still represents that VRN for validation status.
+- Files under `data/` are a static snapshot for this task, possible small compared to actual.
+- Normalised UK identifiers are reliable enough to be treated as equal (company numbers padded to 8 digits where numeric; VAT digits; FRN digits; postcodes spaced).
+- Crawl rows inconistent lots of data (multiple pages per site) use domain / IDs as the main identifier not page content.
 - ICO / SAF / Marketcheck rows without hard IDs may remain unmatched or only soft-match; some ICO orgs in the file are not motor dealers.
-- “Same postcode + distinctive name” is a reasonable proxy for a trading site when IDs are missing; false merges are preferable to control via the confidence floor rather than never merging.
+- “Same postcode + distinctive name” is a reasonable proxy for a trading site/address; use confidence floor rather than never merging.
 
 ## Out of scope / next with more time
 
-- **Not done:** persistent staging tables; fuzzy address parsing beyond simple splits; officer history (resigned officers dropped); approximate string distance (Levenshtein) for names; UI search/filter; automated tests for match fixtures; incremental upsert that preserves dealer IDs across imports.
-- **Next:** gold-set evaluation of match precision/recall; tunable floor via config; keep conflicting alternate values (not only the winner); enrich from live Companies House / FCA / HMRC APIs; stronger crawl aggregation per domain before cross-source match; address normalisation service; review queue in the UI for clusters below a “review band” score.
+- **Not done:** 
+persistent staging tables; 
+officer history (resigned officers dropped); 
+incremental upsert that preserves dealer IDs across imports.
+
+- **Next:** 
+explore different matching algorithms, possible external libraries
+use of cloud (Azure) technologies - 
+        Blob Storage (landing/ + archive/) of data
+        Azure SQL 
+
+        possible azure cloud workflow
+        
+            a. File (data) lands — Event Grid on blob create → emits message with { importId, blobUri, sourceType }.
+            b. Ingest — worker reads one source file, writes staging rows, emits message { importId, sourceType, stagingCount }.
+            c. Normalise — per-source or per-batch messages; emits normalised record refs (or blob of normalised JSON).
+            d. Matching gate — only after all sources for 'importId' are completed (Function or a “sources complete” counter in Redis/Table).
+            e. Match + consolidate — one message per import run (or shard by postcode block); writes dealers + lineage + field provenance.
+            f. Notify — queue/topic import.completed for web cache bust / email / webhook.
