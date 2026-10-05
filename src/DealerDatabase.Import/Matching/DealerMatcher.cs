@@ -1,4 +1,4 @@
-// Matching strategy ref: JF-DDB-07
+
 using DealerDatabase.Import.Models;
 using DealerDatabase.Import.Normalization;
 
@@ -6,7 +6,7 @@ namespace DealerDatabase.Import.Matching;
 
 /// <summary>
 /// Groups source records that refer to the same real-world dealership.
-/// Hard identifier matches always merge; softer signals must meet <see cref="DedupeConfidenceFloor"/>.
+/// Hard identifier matches always merge; softer signals must meet 'DedupeConfidenceFloor' />.
 /// </summary>
 public static class DealerMatcher
 {
